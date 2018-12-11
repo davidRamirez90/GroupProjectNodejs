@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <title>My Sample App</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="/socket.io/socket.io.js"></script>
+  </head>
+  <body>
+    <h1>It works like a charm</h1>
+    <div id="info"></div>
+  </body>
+  <script>
+    var socket = io();
+    var info = document.getElementById('info');
+    socket.on('message', function(data) {
+      info.innerHTML = data.temp;
+    });
+  </script>
+</html>

@@ -1,0 +1,20 @@
+{
+  "name": "opcua_client",
+  "version": "1.0.0",
+  "description": "Simple OPCUA client for TU dortmund 3 semester Automation and Robotics, group projekt: \"Cost efficient Wireless Automation\"",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "format": "prettier"
+  },
+  "author": "David Ramirez",
+  "license": "ISC",
+  "dependencies": {
+    "async": "^2.6.1",
+    "cors": "^2.8.5",
+    "express": "^4.16.4",
+    "mysql": "^2.16.0",
+    "node-opcua": "^0.5.1",
+    "socket.io": "^2.1.1"
+  }
+}
