@@ -8,6 +8,7 @@
  * @param {cors} cors Enabler for cross-origin domain requests ( API )
  * @param {opcua} nodeopcua Wrapper library for OPCUA client
  * @param {async} async Library for async operations / non thread blocking
+ * @param {mysql} mysql Mysql Connection Library to stablish database connection
  * Credits:  Aline Fidêncio, Eslam Abdalla, Hazem Youssef, David Ramirez,
  *           Victor Rodriguez, Md Jahangir Alam
  */
@@ -20,6 +21,17 @@ const cors = require('cors');
 const opcua = require('node-opcua');
 const async = require('async');
 const mysql = require('mysql');
+const mqtt = require('mqtt');
+
+/* MQTT Client initialization */
+const mqttClient = mqtt.connect('mqtt://10.0.0.103:1883');
+
+/* Necesary constants / variabales */
+const port = 5000;
+var t = 0;
+var the_session, the_subscription;
+
+/* Database connection initialization */
 const sqlconn = mysql.createConnection({
   host: 'localhost',
   user: 'root',
@@ -27,17 +39,6 @@ const sqlconn = mysql.createConnection({
   database: 'projectgroup1'
 });
 
-/* Necesary constants / variabales */
-const port = 5000;
-var t = 0;
-var the_session, the_subscription;
-
-/* Define type of OPCUA possible node types */
-const nodeTypes = {
-  Object: 'Object',
-  Config: 'ObjectType',
-  Variable: 'Variable'
-};
 /* Std variable names used for mapping */
 const stdVars = [
   {
@@ -95,9 +96,32 @@ function startHTTPServer() {
     });
   });
 
+  /**
+   * Connection event on mqtt client listening to events
+   */
+  // mqttClient.on('connect', () => {
+  //   mqttClient.subscribe('/sensor_data', err => {
+  //     console.log(err);
+  //   });
+  // });
+
+  // mqttClient.on('message', (topic, msg, packet) => {
+  //   //console.log(JSON.parse(msg.toString()));
+  // });
+
   /* index entry point for server hello message */
   app.get('/', (req, res) => {
     res.sendFile(__dirname + '/index.html');
+  });
+
+  /**
+   * Api route to publish data to mqtt
+   */
+  app.route('/publish').get((req, res) => {
+    let msg = req.query.msg;
+    console.log(msg);
+    mqttClient.publish('/sensor_data', msg);
+    res.send('success', 200);
   });
 
   /**
