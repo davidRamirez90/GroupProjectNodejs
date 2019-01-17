@@ -24,7 +24,7 @@ const mysql = require('mysql');
 const mqtt = require('mqtt');
 
 /* MQTT Client initialization */
-const mqttClient = mqtt.connect('mqtt://10.0.0.103:1883');
+const mqttClient = mqtt.connect('mqtt://10.0.0.101:1883');
 
 /* Necesary constants / variabales */
 const port = 5000;
@@ -83,6 +83,12 @@ app.use(cors(corsOptions));
  * and executing all comm related operations
  */
 function startHTTPServer() {
+  /* Initial DB connection */
+  sqlconn.connect(err => {
+    if (err) console.log(`sql error ${err}`);
+  });
+  console.log(sqlconn);
+
   /* Order Server to start listening on port 5000 */
   io.listen(app.listen(port));
 
@@ -99,15 +105,18 @@ function startHTTPServer() {
   /**
    * Connection event on mqtt client listening to events
    */
-  // mqttClient.on('connect', () => {
-  //   mqttClient.subscribe('/sensor_data', err => {
-  //     console.log(err);
-  //   });
-  // });
+  mqttClient.on('connect', () => {
+    mqttClient.subscribe('/sensor_data', err => {
+      console.log(err);
+    });
+  });
 
-  // mqttClient.on('message', (topic, msg, packet) => {
-  //   //console.log(JSON.parse(msg.toString()));
-  // });
+  mqttClient.on('message', (topic, msg, packet) => {
+    //console.log(JSON.parse(msg.toString()));
+    sqlconn.query(
+      `INSERT INTO mappedsensors (variable, varvalues) VALUES ( 'temp3', ${msg.toString()})`
+    );
+  });
 
   /* index entry point for server hello message */
   app.get('/', (req, res) => {
@@ -121,7 +130,63 @@ function startHTTPServer() {
     let msg = req.query.msg;
     console.log(msg);
     mqttClient.publish('/sensor_data', msg);
-    res.send('success', 200);
+    res.status('su).send(ess', 200);
+  });
+
+  /**
+   * Api route to get projects from user
+   * @param {token} String token of user
+   */
+  app.route('/api/projects').get((req, res) => {
+    let tok = req.query.token;
+    console.log(tok);
+    sqlconn.query(
+      `SELECT projects.id, projects.name, projects.description FROM users INNER JOIN projects ON users.id = projects.user_id WHERE users.token = '${tok}' `,
+      (err, success) => {
+        res.status(200).send({ projects: success });
+      }
+    );
+  });
+
+  /**
+   * Api route to login new user
+   * @param {username} String username
+   * @param {password} String password
+   */
+  app.route('/api/login').get((req, res) => {
+    let username = req.query.username;
+    let password = req.query.password;
+
+    sqlconn.query(
+      `SELECT token FROM users WHERE username = '${username}' AND password = '${password}'`,
+      (err, success) => {
+        if (success & (success[0] === undefined)) res.status(400).send('user doesnt exist');
+        else res.status(200).send({ token: success[0].token });
+      }
+    );
+  });
+
+  /**
+   * Api route to register a user
+   * @param {username} String username
+   * @param {password} String password
+   * @param {name} String name
+   */
+  app.route('/api/register').get((req, res) => {
+    let username = req.query.username;
+    let password = req.query.password;
+    let name = req.query.name;
+    let token = require('crypto')
+      .randomBytes(64)
+      .toString('hex');
+
+    sqlconn.query(
+      `INSERT INTO users (username, password, name, token) VALUES ( '${username}', '${password}','${name}', '${token}' )`,
+      (err, success) => {
+        if (err) res.status(400).send(err);
+        else res.status(200).send({ token: token });
+      }
+    );
   });
 
   /**
@@ -130,20 +195,24 @@ function startHTTPServer() {
    * @param {port} String opcua port
    */
   app.route('/api/connect').get((req, res) => {
-    sqlconn.connect(err => {
-      if (err) console.alert(err);
-      console.log(err);
-    });
+    /* SQL connection configuration */
+    console.log(sqlconn);
+    if (sqlconn.state === 'disconnected') {
+      sqlconn.connect(err => {
+        if (err) console.log(`sql error ${err}`);
+      });
+    }
+
     let url = req.query.url;
     let port = req.query.port;
     manageSeriesConnection(url, port)
       .then(success => {
-        console.log(success);
-        res.send(200, Object.assign(success, { stdVars: stdVars }));
+        console.log(`Connection success ${success} `);
+        res.status(200).send(Object.assign(success, { stdVars: stdVars }));
       })
       .catch(err => {
         console.log(err);
-        res.send(400, err.message);
+        res.status(400).send(err.message);
       });
   });
 
@@ -156,11 +225,11 @@ function startHTTPServer() {
     browseServer(name)
       .then(success => {
         console.log(success);
-        res.send(200, success);
+        res.status(200).send(success);
       })
       .catch(err => {
         console.log(err);
-        res.send(400, err.message);
+        res.status(400).send(err.message);
       });
   });
 
@@ -173,11 +242,11 @@ function startHTTPServer() {
     readVariable(id)
       .then(success => {
         console.log(success);
-        res.send(200, success);
+        res.status(200).send(success);
       })
       .catch(err => {
         console.log(err);
-        res.send(400, err.message);
+        res.status(400).send(err.message);
       });
   });
 
@@ -191,11 +260,11 @@ function startHTTPServer() {
     monitorVariable(id, sVar)
       .then(success => {
         console.log(success);
-        res.send(200, success);
+        res.status(200).send(success);
       })
       .catch(err => {
         console.log(err);
-        res.send(400, err.message);
+        res.status(400).send(err.message);
       });
   });
 
@@ -206,13 +275,13 @@ function startHTTPServer() {
     client.disconnect(err => {
       if (err) {
         console.log(`An error ocurred while disconnecting from server, ${err}`);
-        res.send(400, { status: err });
+        res.status(400).send({ status: err });
       } else {
         console.log(`Successfully disconnected`);
-        res.send(200, { status: 'Disconnected from server' });
+        res.status(200).send({ status: 'Disconnected from server' });
       }
     });
-    sqlconn.end();
+    // sqlconn.end();
   });
 }
 /**
